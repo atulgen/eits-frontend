@@ -7,7 +7,7 @@
   "rewrites": [
     {
       "source": "/api/(.*)",
-      "destination": "https://eits.thebigocommunity.org/api/$1"
+      "destination": "https://erp.eitsdubai.com/api/$1"
     },
     {
       "source": "/(.*)",
