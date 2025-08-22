@@ -13,7 +13,7 @@ import {
   Trash2,
   User,
   Wrench,
-  X
+  X,
 } from "lucide-react";
 import React, { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -25,6 +25,7 @@ import {
   type Services,
 } from "../../context/JobCardOtherContext";
 
+import { handleKeyDown } from "../../helpers/helper";
 import PropertyAddressSection from "../Inquiry/PropertyAddress";
 import { Button } from "../ui/button";
 import {
@@ -63,8 +64,7 @@ const JobCardOtherForm: React.FC<JobCardOtherFormProps> = ({
   onClose,
   jobCard,
 }) => {
-
-  console.log("job card" , jobCard)
+  console.log("job card", jobCard);
   const [showCancelDialog, setShowCancelDialog] = useState(false);
   const { createJobCardOther, updateJobCardOther, loading, fetchEmployees } =
     useJobCardsOther();
@@ -193,7 +193,8 @@ const JobCardOtherForm: React.FC<JobCardOtherFormProps> = ({
         customer_id: (jobCard as any).customer_id || "",
         start_date:
           jobCard.start_date || new Date().toISOString().split("T")[0],
-        finish_date: jobCard.finish_date || new Date().toISOString().split("T")[0],
+        finish_date:
+          jobCard.finish_date || new Date().toISOString().split("T")[0],
         // FIX: Ensure all custom fields are properly mapped
         custom_uae_area: jobCard.custom_uae_area || "",
         custom_emirate: jobCard.custom_emirate || "",
@@ -250,30 +251,38 @@ const JobCardOtherForm: React.FC<JobCardOtherFormProps> = ({
     fetchJobTypes();
   }, []);
 
-  // Validate services when job card dates change
-  useEffect(() => {
-    if (formData.start_date && formData.finish_date) {
-      const invalidServices = services.filter(
-        (service) =>
-          service.start_date &&
-          service.finish_date &&
-          !validateServiceDates(service)
-      );
+  // Add this function after the calculateServiceTotal function
+const calculateJobFinishDate = useCallback(() => {
+  if (services.length === 0) return formData.start_date;
+  
+  const serviceDates = services
+    .map(service => service.finish_date)
+    .filter(date => date && date.trim() !== "");
+    
+  if (serviceDates.length === 0) return formData.start_date;
+  
+  // Find the latest finish date
+  const latestDate = serviceDates.reduce((latest, current) => {
+    return new Date(current) > new Date(latest) ? current : latest;
+  });
+  
+  return latestDate;
+}, [services, formData.start_date]);
 
-      if (invalidServices.length > 0) {
-        toast.warning(
-          "Some service dates are now outside the job card date range"
-        );
-      }
+  // Replace the existing date validation useEffect with this:
+useEffect(() => {
+  if (services.length > 0) {
+    const calculatedFinishDate = calculateJobFinishDate();
+    if (calculatedFinishDate !== formData.finish_date) {
+      setFormData(prev => ({
+        ...prev,
+        finish_date: calculatedFinishDate
+      }));
     }
-  }, [
-    formData.start_date,
-    formData.finish_date,
-    services,
-    validateServiceDates,
-  ]);
+  }
+}, [services, calculateJobFinishDate]);
 
-   const handleCustomerSearch = useCallback(async (query: string) => {
+  const handleCustomerSearch = useCallback(async (query: string) => {
     if (!query.trim()) {
       setSearchResults([]);
       setShowDropdown(false);
@@ -350,96 +359,134 @@ const JobCardOtherForm: React.FC<JobCardOtherFormProps> = ({
     }
   }, []);
 
-  // Updated handleCustomerSelect function for JobCard
-   const handleCustomerSelect = async (customer: any) => {
-    console.log("Selected customer:", customer);
-      setFetchingCustomerDetails(true);
-  
-      try {
-        if (customer.is_new_customer) {
-          // Handle new customer
-          setFormData((prev) => ({
-            ...prev,
-            party_name: customer.customer_name,
-            customer_id: "",
-            lead_id: "",
-            area: "",
-            custom_property_category: "",
-            custom_emirate: "",
-            custom_uae_area: "",
-            custom_community: "",
-            custom_street_name: "",
-            custom_property_numbername: "",
-            custom_property_type: "",
-          }));
-          setSearchQuery(customer.customer_name);
-        } else {
-          // Handle existing customer/lead
-          const customerData = {
-            party_name:
-              customer.customer_name || customer.lead_details?.lead_name || "",
-            customer_id: customer.customer_details?.name || "",
-            lead_id: customer.lead_details?.name || "",
-            area: customer.site_name || "",
-            custom_property_category: customer.custom_property_category || "",
-            custom_emirate: customer.custom_emirate || "",
-            custom_uae_area: customer.custom_area || "",
-            custom_community: customer.custom_community || "",
-            custom_street_name: customer.custom_street_name || "",
-            custom_property_numbername: customer.custom_property_number || "",
-            custom_property_type: customer.custom_property_type || "",
-          };
-  
-          setFormData((prev) => ({
-            ...prev,
-            ...customerData,
-          }));
-  
-          setSearchQuery(
-            customer.customer_name || customer.lead_details?.lead_name || ""
-          );
-        }
-  
-        setShowDropdown(false);
-  
-        // If there's a lead, fetch additional lead details
-        if (customer.lead_details?.name && !customer.is_new_customer) {
-          setFetchingLeadDetails(true);
-          try {
-            const leadResponse = await frappeAPI.getLeadById(
-              customer.lead_details.name
-            );
-  
-            if (leadResponse.data) {
-              const lead = leadResponse.data;
-              setFormData((prev) => ({
-                ...prev,
-                area: lead.custom_property_area || prev.area,
-                lead_id: lead.name,
-                custom_property_category:
-                  lead.custom_property_category || prev.custom_property_category,
-                custom_emirate: lead.custom_emirate || prev.custom_emirate,
-                custom_uae_area: lead.custom_area || prev.custom_uae_area,
-                custom_community: lead.custom_community || prev.custom_community,
-                custom_street_name:
-                  lead.custom_street_name || prev.custom_street_name,
-                custom_property_numbername:
-                  lead.custom_property_numbername ||
-                  prev.custom_property_numbername,
-                custom_property_type:
-                  lead.custom_property_type || prev.custom_property_type,
-              }));
-            }
-          } catch (error) {
-            console.error("Failed to fetch lead data:", error);
-          } finally {
-            setFetchingLeadDetails(false);
+  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const input = e.target.value;
+
+    if (!input.startsWith("+971 ")) {
+      setNewCustomerData((prev) => ({ ...prev, mobile_no: "+971 " }));
+      return;
+    }
+
+    const digits = input.replace(/\D/g, "").substring(3);
+    const limitedDigits = digits.substring(0, 9);
+
+    let formattedNumber = "+971 ";
+
+    if (limitedDigits.length > 0) {
+      const isMobile = limitedDigits.startsWith("5");
+
+      if (isMobile) {
+        formattedNumber += limitedDigits.substring(0, 3);
+        if (limitedDigits.length > 3) {
+          formattedNumber += " " + limitedDigits.substring(3, 6);
+          if (limitedDigits.length > 6) {
+            formattedNumber += " " + limitedDigits.substring(6, 9);
           }
         }
-      } finally {
-        setFetchingCustomerDetails(false);
+      } else {
+        formattedNumber += limitedDigits.substring(0, 2);
+        if (limitedDigits.length > 2) {
+          formattedNumber += " " + limitedDigits.substring(2, 5);
+          if (limitedDigits.length > 5) {
+            formattedNumber += " " + limitedDigits.substring(5, 9);
+          }
+        }
       }
-    };
+    }
+
+    setNewCustomerData((prev) => ({ ...prev, mobile_no: formattedNumber }));
+  };
+
+  // Updated handleCustomerSelect function for JobCard
+  const handleCustomerSelect = async (customer: any) => {
+    console.log("Selected customer:", customer);
+    setFetchingCustomerDetails(true);
+
+    try {
+      if (customer.is_new_customer) {
+        // Handle new customer
+        setFormData((prev) => ({
+          ...prev,
+          party_name: customer.customer_name,
+          customer_id: "",
+          lead_id: "",
+          area: "",
+          custom_property_category: "",
+          custom_emirate: "",
+          custom_uae_area: "",
+          custom_community: "",
+          custom_street_name: "",
+          custom_property_numbername: "",
+          custom_property_type: "",
+        }));
+        setSearchQuery(customer.customer_name);
+      } else {
+        // Handle existing customer/lead
+        const customerData = {
+          party_name:
+            customer.customer_name || customer.lead_details?.lead_name || "",
+          customer_id: customer.customer_details?.name || "",
+          lead_id: customer.lead_details?.name || "",
+          area: customer.site_name || "",
+          custom_property_category: customer.custom_property_category || "",
+          custom_emirate: customer.custom_emirate || "",
+          custom_uae_area: customer.custom_area || "",
+          custom_community: customer.custom_community || "",
+          custom_street_name: customer.custom_street_name || "",
+          custom_property_numbername: customer.custom_property_number || "",
+          custom_property_type: customer.custom_property_type || "",
+        };
+
+        setFormData((prev) => ({
+          ...prev,
+          ...customerData,
+        }));
+
+        setSearchQuery(
+          customer.customer_name || customer.lead_details?.lead_name || ""
+        );
+      }
+
+      setShowDropdown(false);
+
+      // If there's a lead, fetch additional lead details
+      if (customer.lead_details?.name && !customer.is_new_customer) {
+        setFetchingLeadDetails(true);
+        try {
+          const leadResponse = await frappeAPI.getLeadById(
+            customer.lead_details.name
+          );
+
+          if (leadResponse.data) {
+            const lead = leadResponse.data;
+            setFormData((prev) => ({
+              ...prev,
+              area: lead.custom_property_area || prev.area,
+              lead_id: lead.name,
+              custom_property_category:
+                lead.custom_property_category || prev.custom_property_category,
+              custom_emirate: lead.custom_emirate || prev.custom_emirate,
+              custom_uae_area: lead.custom_area || prev.custom_uae_area,
+              custom_community: lead.custom_community || prev.custom_community,
+              custom_street_name:
+                lead.custom_street_name || prev.custom_street_name,
+              custom_property_numbername:
+                lead.custom_property_numbername ||
+                prev.custom_property_numbername,
+              custom_property_type:
+                lead.custom_property_type || prev.custom_property_type,
+            }));
+          }
+        } catch (error) {
+          console.error("Failed to fetch lead data:", error);
+        } finally {
+          setFetchingLeadDetails(false);
+        }
+      }
+    } finally {
+      setFetchingCustomerDetails(false);
+    }
+  };
 
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const query = e.target.value;
@@ -525,9 +572,7 @@ const JobCardOtherForm: React.FC<JobCardOtherFormProps> = ({
       }
     } catch (error) {
       console.error("Error creating customer:", error);
-      toast.error(
-        "Failed to create customer. Please try again."
-      );
+      toast.error("Failed to create customer. Please try again.");
     } finally {
       setCreatingCustomer(false);
     }
@@ -672,10 +717,10 @@ const JobCardOtherForm: React.FC<JobCardOtherFormProps> = ({
       return newData;
     });
   }, []);
- const extractCustomerNameFromSite = (siteName: string) => {
+  const extractCustomerNameFromSite = (siteName: string) => {
     if (!siteName) return "Unknown";
     // Format: "Name-Number,..." - extract everything before the first dash and number
-    const parts = siteName.split('-');
+    const parts = siteName.split("-");
     if (parts.length >= 2) {
       // Check if the part after dash starts with a number
       const afterDash = parts[1];
@@ -684,14 +729,14 @@ const JobCardOtherForm: React.FC<JobCardOtherFormProps> = ({
       }
     }
     // Fallback: take first part before comma
-    return siteName.split(',')[0].trim();
+    return siteName.split(",")[0].trim();
   };
 
   // Helper function to extract address from site_name (remove customer name part)
   const extractAddressFromSite = (siteName: string) => {
     if (!siteName) return "";
     // Format: "Name-Number,..." - extract everything after the first dash
-    const dashIndex = siteName.indexOf('-');
+    const dashIndex = siteName.indexOf("-");
     if (dashIndex !== -1) {
       const afterDash = siteName.substring(dashIndex + 1);
       // Check if what comes after dash starts with a number (address part)
@@ -737,15 +782,15 @@ const JobCardOtherForm: React.FC<JobCardOtherFormProps> = ({
                   )}
                   <div className="flex items-center space-x-2">
                     <span className="text-sm text-white font-medium">
-                      Date: 
+                      Date:
                     </span>
                     <span className="text-sm font-medium">
-  {new Date().toLocaleDateString("en-GB", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  })}
-</span>
+                      {new Date().toLocaleDateString("en-GB", {
+                        day: "2-digit",
+                        month: "2-digit",
+                        year: "numeric",
+                      })}
+                    </span>
                   </div>
                 </div>
               </div>
@@ -817,13 +862,13 @@ const JobCardOtherForm: React.FC<JobCardOtherFormProps> = ({
                           onChange={handleSearchChange}
                           placeholder="Search by name, phone, or email"
                           required
-                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none pr-10"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none pr-10 capitalize"
                         />
                         {isSearching && (
                           <Loader2 className="absolute right-3 top-3 h-4 w-4 animate-spin text-gray-500" />
                         )}
                       </div>
-                     {showDropdown && (
+                      {showDropdown && (
                         <>
                           {/* Backdrop to handle clicks outside */}
                           <div
@@ -879,7 +924,9 @@ const JobCardOtherForm: React.FC<JobCardOtherFormProps> = ({
                                             <Home className="h-3 w-3 flex-shrink-0 mt-0.5" />
                                             <div className="flex-1 min-w-0">
                                               <p className="break-words text-xs leading-tight">
-                                                {extractAddressFromSite(result.site_name)}
+                                                {extractAddressFromSite(
+                                                  result.site_name
+                                                )}
                                               </p>
                                             </div>
                                           </div>
@@ -1026,37 +1073,15 @@ const JobCardOtherForm: React.FC<JobCardOtherFormProps> = ({
                           </span>
                         </Label>
                         <div className="relative">
-                          <Input
-                            id="finish_date"
-                            name="finish_date"
-                            type="date"
-                            value={
-                              formData.finish_date || formData.start_date || ""
-                            }
-                            onChange={(e) => {
-                              const selectedDate = e.target.value;
-                              if (
-                                formData.start_date &&
-                                new Date(selectedDate) <
-                                  new Date(formData.start_date)
-                              ) {
-                                toast.error(
-                                  "Finish date cannot be before start date"
-                                );
-                                return;
-                              }
-                              setFormData((prev) => ({
-                                ...prev,
-                                finish_date: selectedDate,
-                              }));
-                            }}
-                            min={
-                              formData.start_date ||
-                              new Date().toISOString().split("T")[0]
-                            }
-                            required
-                            className="w-full rounded-md border border-gray-300 px-2 py-2 text-md text-gray-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
-                          />
+                          
+<Input
+  id="finish_date"
+  name="finish_date"
+  type="date"
+  value={formData.finish_date || formData.start_date || ""}
+  readOnly // Add this to make it read-only
+  className="w-full rounded-md border border-gray-300 px-2 py-2 text-md text-gray-900 shadow-sm bg-gray-50 cursor-not-allowed" // Add bg-gray-50 and cursor-not-allowed
+/>
                           <Calendar className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
                         </div>
                       </div>
@@ -1161,7 +1186,7 @@ const JobCardOtherForm: React.FC<JobCardOtherFormProps> = ({
                                     );
                                   }}
                                   min={formData.start_date}
-                                  max={formData.finish_date}
+                                 
                                   className="w-full rounded-md border border-gray-300 px-2 py-2 text-sm text-gray-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                                 />
                                 <Calendar className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
@@ -1187,47 +1212,32 @@ const JobCardOtherForm: React.FC<JobCardOtherFormProps> = ({
                                     service.start_date ||
                                     ""
                                   }
-                                  onChange={(e) => {
-                                    if (
-                                      formData.start_date &&
-                                      new Date(e.target.value) <
-                                        new Date(formData.start_date)
-                                    ) {
-                                      toast.error(
-                                        "Service finish date cannot be before job start date"
-                                      );
-                                      return;
-                                    }
-                                    if (
-                                      service.start_date &&
-                                      new Date(e.target.value) <
-                                        new Date(service.start_date)
-                                    ) {
-                                      toast.error(
-                                        "Finish date cannot be before start date"
-                                      );
-                                      return;
-                                    }
-                                    updateService(
-                                      index,
-                                      "finish_date",
-                                      e.target.value
-                                    );
-                                  }}
+                                  // In the Service Finish Date input, replace the onChange handler:
+onChange={(e) => {
+  if (
+    service.start_date &&
+    new Date(e.target.value) < new Date(service.start_date)
+  ) {
+    toast.error("Finish date cannot be before start date");
+    return;
+  }
+  updateService(index, "finish_date", e.target.value);
+  // Remove the job card date range validation from here
+}}
                                   min={
                                     formData.start_date || service.start_date
                                   }
-                                  max={formData.finish_date}
+                                 
                                   className="w-full rounded-md border border-gray-300 px-2 py-2 text-sm text-gray-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                                 />
                                 <Calendar className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
                               </div>
-                              {service.finish_date &&
+                              {/* {service.finish_date &&
                                 !isDateInRange(service.finish_date) && (
                                   <p className="text-xs text-red-500">
                                     Date must be within job card range
                                   </p>
-                                )}
+                                )} */}
                             </div>
                           </div>
 
@@ -1270,7 +1280,7 @@ const JobCardOtherForm: React.FC<JobCardOtherFormProps> = ({
                                 target.style.height = "auto";
                                 target.style.height = `${target.scrollHeight}px`;
                               }}
-                              className="min-h-[100px] text-md resize-none overflow-hidden w-full" // Increased min-height
+                              className="min-h-[100px] text-md resize-none overflow-hidden w-full capitalize" // Increased min-height
                               rows={3} // Set default rows to 3
                               onKeyDown={(e) => {
                                 // Allow Enter key to create new lines
@@ -1420,28 +1430,53 @@ const JobCardOtherForm: React.FC<JobCardOtherFormProps> = ({
                 onChange={handleNewCustomerInputChange}
                 placeholder="Enter customer name"
                 required
+                className="capitalize"
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="mobile_no">Mobile Number</Label>
+              <Label className="block text-sm font-medium text-gray-700 mb-1">
+                Phone Number <span className="text-red-500">*</span>
+              </Label>
               <Input
-                id="mobile_no"
+                type="tel"
                 name="mobile_no"
                 value={newCustomerData.mobile_no}
-                onChange={handleNewCustomerInputChange}
-                placeholder="Enter mobile number"
+                onChange={handlePhoneChange}
+                onKeyDown={handleKeyDown}
+                placeholder="+971 XX XXX XXXX"
+                maxLength={17}
+                required
+                className="w-full"
               />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="email_id">Email (Optional)</Label>
+            <div>
+              <Label htmlFor="email_id">Email</Label>
               <Input
-                id="email_id"
+                type="email_id"
                 name="email_id"
-                value={newCustomerData.email_id || ""}
-                onChange={handleNewCustomerInputChange}
-                placeholder="Enter email address"
-                type="email"
+                value={newCustomerData.email_id}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  setNewCustomerData((prev: any) => ({
+                    ...prev,
+                    email: value,
+                  }));
+                }}
+                placeholder="Enter email"
+                className="w-full"
               />
+              {/* Error message */}
+              {newCustomerData.email_id && (
+                <>
+                  {!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(
+                    newCustomerData.email_id
+                  ) && (
+                    <p className="text-sm text-red-500 mt-1">
+                      Must be a valid email format (example: user@example.com)
+                    </p>
+                  )}
+                </>
+              )}
             </div>
           </div>
           <div className="flex justify-end gap-2">
