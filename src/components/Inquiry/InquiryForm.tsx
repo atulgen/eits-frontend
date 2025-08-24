@@ -20,7 +20,7 @@ import {
   X,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import toast from "react-hot-toast";
+// import showToast from "react-hot-showToast";
 import { useNavigate } from "react-router-dom";
 import { frappeAPI } from "../../api/frappeClient";
 import { useAuth } from "../../context/AuthContext";
@@ -75,6 +75,7 @@ import type {
   NewCustomerFormData,
   PriorityLevel,
 } from "../../types/inquiryFormdata";
+import { showToast } from "../../helpers/comman";
 
 interface InquiryFormProps {
   isOpen: boolean;
@@ -136,6 +137,8 @@ const InquiryForm: React.FC<InquiryFormProps> = ({
     ...defaultFormData,
   });
   const [showReferenceInput, setShowReferenceInput] = useState(false);
+// Add this state for tracking validation errors
+const [durationError, setDurationError] = useState(false);
 
   // Customer search states
   const [searchQuery, setSearchQuery] = useState("");
@@ -244,22 +247,31 @@ const InquiryForm: React.FC<InquiryFormProps> = ({
     }
   }, []);
 
-  useEffect(() => {
-    if (requestedTime && duration) {
-      const endTime = calculateEndTime();
-      if (endTime) {
-        const [hours, minutes] = endTime.split(":").map(Number);
-        const totalMinutes = hours * 60 + minutes;
+  // Update the useEffect that handles end time validation
+useEffect(() => {
+  if (requestedTime && duration && selectedSlot) {
+    const endTime = calculateEndTime();
+    if (endTime) {
+      const [hours, minutes] = endTime.split(":").map(Number);
+      const totalMinutes = hours * 60 + minutes;
+      const slotEndMinutes = timeToMinutes(selectedSlot.end);
 
+      // Check if end time exceeds the selected slot
+      if (totalMinutes > slotEndMinutes) {
+        setDurationError(true);
+        showToast.error(`End time (${endTime}) exceeds the selected slot (${selectedSlot.start} - ${selectedSlot.end}). Please adjust the duration.`);
+      } else if (totalMinutes > 18 * 60) {
         // Check if end time is after 18:00 (6:00 PM)
-        if (totalMinutes > 18 * 60) {
-          setShowEndTimeWarning(true);
-        } else {
-          setShowEndTimeWarning(false);
-        }
+        setShowEndTimeWarning(true);
+        setDurationError(false);
+      } else {
+        setShowEndTimeWarning(false);
+        setDurationError(false);
       }
     }
-  }, [requestedTime, duration]);
+  }
+}, [requestedTime, duration, selectedSlot]);
+
   // Replace the existing useEffect for inquiry loading
   useEffect(() => {
     if (inquiry && hasFetchedInitialData) {
@@ -382,12 +394,12 @@ const InquiryForm: React.FC<InquiryFormProps> = ({
   const validateForm = (): boolean => {
     // Customer Details validation
     if (!selectedCustomer) {
-      toast.error("Customer selection is required");
+      showToast.error("Customer selection is required");
       return false;
     }
 
     if (!formData.custom_jobtype || formData.custom_jobtype.length === 0) {
-      toast.error("At least one job type is required");
+      showToast.error("At least one job type is required");
       return false;
     }
     return true;
@@ -460,7 +472,7 @@ const InquiryForm: React.FC<InquiryFormProps> = ({
               : prev.custom_preferred_inspection_date,
         }));
 
-        toast.success("Inquiry updated successfully!");
+        showToast.success("Inquiry updated successfully!");
         return existingLeadId;
       } else {
         // Create new lead only if we don't have an ID
@@ -485,7 +497,7 @@ const InquiryForm: React.FC<InquiryFormProps> = ({
               : prev.custom_preferred_inspection_date,
         }));
 
-        toast.success("Inquiry created successfully!");
+        showToast.success("Inquiry created successfully!");
         return newInquiry.name;
       }
     } catch (err) {
@@ -500,7 +512,7 @@ const InquiryForm: React.FC<InquiryFormProps> = ({
       //   }
       // }
 
-      toast.error("Failed to save inquiry. Please try again.");
+      showToast.error("Failed to save inquiry. Please try again.");
       return undefined;
     }
   };
@@ -530,11 +542,11 @@ const InquiryForm: React.FC<InquiryFormProps> = ({
       if (existingLeadId) {
         // Update existing lead
         await updateLead(existingLeadId, submissionData);
-        toast.success("Inquiry updated successfully!");
+        showToast.success("Inquiry updated successfully!");
       } else {
         // Create new lead
         const newInquiry = await createLead(submissionData);
-        toast.success("Inquiry created successfully!");
+        showToast.success("Inquiry created successfully!");
 
         // Update formData with the new lead ID
         setFormData((prev) => ({
@@ -546,14 +558,14 @@ const InquiryForm: React.FC<InquiryFormProps> = ({
       onClose();
     } catch (err) {
       console.error("Form submission error:", err);
-      toast.error("Failed to create inquiry. Please try again.");
+      showToast.error("Failed to create inquiry. Please try again.");
     }
   };
 
   const handleAssignAndSave = () => {
     // Validate form fields and show specific error messages
     if (!selectedCustomer) {
-      toast.error(
+      showToast.error(
         "Please complete customer details: Customer selection is required"
       );
       setActiveSection("contact");
@@ -561,7 +573,7 @@ const InquiryForm: React.FC<InquiryFormProps> = ({
     }
 
     if (!formData.custom_jobtype || formData.custom_jobtype.length === 0) {
-      toast.error(
+      showToast.error(
         "Please complete job details: At least one job type is required"
       );
       setActiveSection("job");
@@ -569,19 +581,19 @@ const InquiryForm: React.FC<InquiryFormProps> = ({
     }
 
     if (!formData.custom_budget_range) {
-      toast.error("Please complete job details: Budget range is required");
+      showToast.error("Please complete job details: Budget range is required");
       setActiveSection("job");
       return;
     }
 
     if (!formData.custom_project_urgency) {
-      toast.error("Please complete job details: Project urgency is required");
+      showToast.error("Please complete job details: Project urgency is required");
       setActiveSection("job");
       return;
     }
 
     if (!formData.source) {
-      toast.error(
+      showToast.error(
         "Please complete customer details: Source of inquiry is required"
       );
       setActiveSection("contact");
@@ -593,7 +605,7 @@ const InquiryForm: React.FC<InquiryFormProps> = ({
         formData.source === "Supplier Reference") &&
       !formData.custom_reference_name
     ) {
-      toast.error(
+      showToast.error(
         "Please complete customer details: Reference name is required"
       );
       setActiveSection("contact");
@@ -602,7 +614,7 @@ const InquiryForm: React.FC<InquiryFormProps> = ({
 
     // Property validation
     if (!formData.custom_property_name__number) {
-      toast.error(
+      showToast.error(
         "Please complete property details: Property number is required"
       );
       setActiveSection("property");
@@ -610,7 +622,7 @@ const InquiryForm: React.FC<InquiryFormProps> = ({
     }
 
     if (!formData.custom_property_category) {
-      toast.error(
+      showToast.error(
         "Please complete property details: Property category is required"
       );
       setActiveSection("property");
@@ -618,7 +630,7 @@ const InquiryForm: React.FC<InquiryFormProps> = ({
     }
 
     if (!formData.custom_property_area) {
-      toast.error(
+      showToast.error(
         "Please complete property details: Property area is required"
       );
       setActiveSection("property");
@@ -626,50 +638,50 @@ const InquiryForm: React.FC<InquiryFormProps> = ({
     }
 
     if (!formData.custom_street_name) {
-      toast.error("Please complete property details: Street name is required");
+      showToast.error("Please complete property details: Street name is required");
       setActiveSection("property");
       return;
     }
 
     if (!formData.custom_emirate) {
-      toast.error("Please complete property details: Emirate is required");
+      showToast.error("Please complete property details: Emirate is required");
       setActiveSection("property");
       return;
     }
 
     if (!formData.custom_community) {
-      toast.error("Please complete property details: Community is required");
+      showToast.error("Please complete property details: Community is required");
       setActiveSection("property");
       return;
     }
 
     if (!formData.custom_area) {
-      toast.error("Please complete property details: Area is required");
+      showToast.error("Please complete property details: Area is required");
       setActiveSection("property");
       return;
     }
 
     // Inspector assignment validation
     if (!selectedInspector) {
-      toast.error("Please select an inspector for assignment");
+      showToast.error("Please select an inspector for assignment");
       setActiveSection("inspector");
       return;
     }
 
     if (!date) {
-      toast.error("Please select an inspection date");
+      showToast.error("Please select an inspection date");
       setActiveSection("inspector");
       return;
     }
 
     if (!requestedTime) {
-      toast.error("Please enter the requested inspection time");
+      showToast.error("Please enter the requested inspection time");
       setActiveSection("inspector");
       return;
     }
 
     if (!validateRequestedTime()) {
-      toast.error(
+      showToast.error(
         `Requested time must be within the selected slot (${selectedSlot?.start} - ${selectedSlot?.end})`
       );
       setActiveSection("inspector");
@@ -683,7 +695,7 @@ const InquiryForm: React.FC<InquiryFormProps> = ({
       const totalMinutes = hours * 60 + minutes;
 
       if (totalMinutes > 18 * 60) {
-        toast.error(
+        showToast.error(
           "Inspection cannot end after 6:00 PM. Please adjust the start time or duration."
         );
         setShowEndTimeWarning(true);
@@ -710,12 +722,12 @@ const InquiryForm: React.FC<InquiryFormProps> = ({
         const submissionData = formatSubmissionData(formData);
         await updateLead(existingLeadId, submissionData);
         inquiryName = existingLeadId;
-        toast.success("Inquiry updated successfully!");
+        showToast.success("Inquiry updated successfully!");
       } else {
         // Only create new lead if we don't have an ID (shouldn't happen if saveNewCustomer worked correctly)
         const savedLeadName = await saveLead();
         if (!savedLeadName) {
-          toast.error("Failed to save inquiry");
+          showToast.error("Failed to save inquiry");
           return;
         }
         inquiryName = savedLeadName;
@@ -773,12 +785,12 @@ const InquiryForm: React.FC<InquiryFormProps> = ({
         dwaPayload
       );
 
-      toast.success("Inspector assigned successfully!");
+      showToast.success("Inspector assigned successfully!");
       navigate("/sales?tab=assign");
       onClose();
     } catch (error) {
       console.error("Full error in assignment process:", error);
-      toast.error(`Failed to complete assignment`);
+      showToast.error(`Failed to complete assignment`);
     }
   };
 
@@ -952,181 +964,261 @@ const InquiryForm: React.FC<InquiryFormProps> = ({
     setShowCustomerModal(true);
   };
 
-  const handleSaveCustomer = async () => {
-    if (!customerForm.name.trim()) {
-      toast.error("Customer name is required");
-      return;
-    }
+const handleSaveCustomer = async () => {
+  // Validation
+  if (!customerForm.name.trim()) {
+    showToast.error("Customer name is required");
+    return;
+  }
 
-    if (!customerForm.phone || customerForm.phone.length < 5) {
-      toast.error("Valid mobile number is required");
-      return;
-    }
+  if (!customerForm.phone || customerForm.phone.length < 5) {
+    showToast.error("Valid mobile number is required");
+    return;
+  }
 
-    try {
-      setIsCreatingCustomer(true);
+  try {
+    setIsCreatingCustomer(true);
 
-      // For new inquiries, just update local state without creating/updating lead
-      if (!inquiry) {
-        const updatedCustomer = {
-          customer_name: customerForm.name.trim(),
-          mobile_no: customerForm.phone,
-          email_id: customerForm.email || "",
-          name: selectedCustomer?.name || "",
-          lead_name: selectedCustomer?.lead_name || "",
-        };
+    // Create/update customer object for local state
+    const updatedCustomer = {
+      customer_name: customerForm.name.trim(),
+      mobile_no: customerForm.phone,
+      email_id: customerForm.email || "",
+      name: selectedCustomer?.name || "", // Keep existing customer ID if editing
+      lead_name: selectedCustomer?.lead_name || "",
+    };
+
+    // Update selected customer state
+    setSelectedCustomer(updatedCustomer);
+    setSearchQuery(updatedCustomer.customer_name);
+
+    // Update form data locally - this will be saved when handleSubmit is called
+    setFormData((prev) => ({
+      ...prev,
+      lead_name: updatedCustomer.customer_name,
+      email_id: updatedCustomer.email_id,
+      mobile_no: updatedCustomer.mobile_no,
+      // Also update customer_id and lead_id if they exist
+      customer_id: updatedCustomer.name || prev.customer_id,
+      lead_id: updatedCustomer.lead_name || prev.lead_id,
+    }));
+
+    // Close modal and reset form
+    setShowCustomerModal(false);
+    setCustomerForm({
+      name: "",
+      email: "",
+      phone: "+971 ",
+      jobType: [],
+    });
+
+    showToast.success(
+      modalMode === "create" 
+        ? `Customer "${updatedCustomer.customer_name}" details added ` 
+        : `Customer "${updatedCustomer.customer_name}" details updated `
+    );
+
+  } catch (error) {
+    console.error("Error updating customer details:", error);
+    showToast.error("Failed to update customer details");
+  } finally {
+    setIsCreatingCustomer(false);
+  }
+};
+//   const handleSaveCustomer = async () => {
+//   if (!customerForm.name.trim()) {
+//     showToast.error("Customer name is required");
+//     return;
+//   }
+
+//   if (!customerForm.phone || customerForm.phone.length < 5) {
+//     showToast.error("Valid mobile number is required");
+//     return;
+//   }
+//   if (customerForm.jobType.length === 0) {
+//     showToast.error("At least one job type is required");
+//     return;
+//   }
+
+//   try {
+//     setIsCreatingCustomer(true);
+
+//     // For new inquiries, create the lead immediately
+//     if (!inquiry) {
+//       const formattedData = formatSubmissionData({
+//         lead_name: customerForm.name.trim(),
+//         email_id: customerForm.email || "",
+//         mobile_no: customerForm.phone,
+//         custom_jobtype: customerForm.jobType, // Helper will convert to API format
+//         custom_budget_range: "",
+//         custom_project_urgency: "",
+//         source: "",
+//         custom_property_name__number: "",
+//         custom_emirate: "",
+//         custom_area: "",
+//         custom_community: "",
+//         custom_street_name: "",
+//         custom_property_area: "",
+//         custom_property_category: "",
+//         custom_special_requirements: "",
+//       });
+      
+//       // Create the lead via API
+//       const newLead = await createLead(formattedData);
+//       console.log("Newly created lead:", newLead);
+//       if (!newLead) {
+//         throw new Error("Failed to create lead");
+//       }
+
+//       // Convert API response format back to form format (string[])
+//       const convertedJobTypes = Array.isArray(newLead.custom_jobtype)
+//         ? newLead.custom_jobtype.map((item: any) =>
+//             typeof item === "string" ? item : item.job_type
+//           )
+//         : customerForm.jobType;
+
         
-        
+//       // Update form data with the new lead
+//       setFormData((prev) => ({
+//         ...prev,
+//         ...newLead,
+//         name: newLead.name, // Set the lead ID
+//         custom_jobtype: convertedJobTypes, // Ensure this is string[]
+//         custom_preferred_inspection_date:
+//           newLead.custom_preferred_inspection_date
+//             ? new Date(newLead.custom_preferred_inspection_date)
+//             : prev.custom_preferred_inspection_date,
+//       }));
 
-        setSelectedCustomer(updatedCustomer);
-        setSearchQuery(updatedCustomer.customer_name);
+      
 
-        // Update form data locally - ensure custom_jobtype is string[]
-        setFormData((prev) => ({
-          ...prev,
-          lead_name: updatedCustomer.customer_name,
-          email_id: updatedCustomer.email_id,
-          mobile_no: updatedCustomer.mobile_no,
-          custom_jobtype: customerForm.jobType, // This is already string[]
-        }));
-        
+//       // Update selected customer
+//       const updatedCustomer = {
+//         customer_name: newLead.lead_name || customerForm.name,
+//         mobile_no: newLead.mobile_no || customerForm.phone,
+//         email_id: newLead.email_id || customerForm.email,
+//         name: newLead.name,
+//         lead_name: newLead.name,
+//       };
 
-        setShowCustomerModal(false);
-        setCustomerForm({
-          name: "",
-          email: "",
-          phone: "+971 ",
-          jobType: [],
-        });
+//       console.log("Updated customer after lead creation:", updatedCustomer);
 
-        toast.success(`Customer details updated`);
-        return;
-      }
+//       setSelectedCustomer(updatedCustomer);
+//       setSearchQuery(updatedCustomer.customer_name);
 
-      // For existing inquiries, update the lead
-      const leadId = formData.name || selectedCustomer?.name;
-      if (!leadId) {
-        throw new Error("No lead ID found for update");
-      }
+//       setShowCustomerModal(false);
+//       setCustomerForm({
+//         name: "",
+//         email: "",
+//         phone: "+971 ",
+//         jobType: [],
+//       });
 
-      // Fetch fresh document before updating
-      const freshLead = await frappeAPI.makeAuthenticatedRequest(
-        "GET",
-        `/api/resource/Lead/${leadId}`
-      );
+//       showToast.success(`Lead "${updatedCustomer.customer_name}" created successfully!`);
+//       return;
+//     }
 
-      if (!freshLead?.data) {
-        throw new Error("Could not fetch fresh lead data");
-      }
+//     // For existing inquiries, update the lead (existing logic)
+//     const leadId = formData.name || selectedCustomer?.name;
+//     if (!leadId) {
+//       throw new Error("No lead ID found for update");
+//     }
 
-      // Convert jobType array to the format expected by the API
-      const apiJobTypeFormat = customerForm.jobType.map((jobType) => ({
-        job_type: jobType,
-      }));
+//     // Fetch fresh document before updating
+//     const freshLead = await frappeAPI.makeAuthenticatedRequest(
+//       "GET",
+//       `/api/resource/Lead/${leadId}`
+//     );
+//     console.log("Fetched fresh lead data:", freshLead);
 
-      const newLeadData = {
-        ...freshLead.data,
-        lead_name: customerForm.name.trim(),
-        email_id: customerForm.email || "",
-        mobile_no: customerForm.phone,
-        custom_jobtype: apiJobTypeFormat, // Use API format
-      };
+//     if (!freshLead?.data) {
+//       throw new Error("Could not fetch fresh lead data");
+//     }
 
-      // Remove undefined fields
-      Object.keys(newLeadData).forEach((key) => {
-        if (newLeadData[key] === undefined) {
-          delete newLeadData[key];
-        }
-      });
+//     // Convert jobType array to the format expected by the API
+//     const apiJobTypeFormat = customerForm.jobType.map((jobType) => ({
+//       job_type: jobType,
+//     }));
 
-      let updatedLead;
-      if (modalMode === "create") {
-        const formattedData = formatSubmissionData({
-          lead_name: customerForm.name.trim(),
-          email_id: customerForm.email || "",
-          mobile_no: customerForm.phone,
-          custom_jobtype: customerForm.jobType, // Helper will convert to API format
-          custom_budget_range: "",
-          custom_project_urgency: "",
-          source: "",
-          custom_property_name__number: "",
-          custom_emirate: "",
-          custom_area: "",
-          custom_community: "",
-          custom_street_name: "",
-          custom_property_area: "",
-          custom_property_category: "",
-          custom_special_requirements: "",
-        });
-        updatedLead = await createLead(formattedData);
-      } else {
-        updatedLead = await updateLead(leadId, newLeadData);
-      }
+//     const newLeadData = {
+//       ...freshLead.data,
+//       lead_name: customerForm.name.trim(),
+//       email_id: customerForm.email || "",
+//       mobile_no: customerForm.phone,
+//       custom_jobtype: apiJobTypeFormat, // Use API format
+//     };
 
-      if (!updatedLead) {
-        throw new Error("Failed to save lead");
-      }
+//     // Remove undefined fields
+//     Object.keys(newLeadData).forEach((key) => {
+//       if (newLeadData[key] === undefined) {
+//         delete newLeadData[key];
+//       }
+//     });
 
-      // Convert API response format back to form format (string[])
-      const convertedJobTypes = Array.isArray(updatedLead.custom_jobtype)
-        ? updatedLead.custom_jobtype.map((item: any) =>
-            typeof item === "string" ? item : item.job_type
-          )
-        : customerForm.jobType;
+//     const updatedLead = await updateLead(leadId, newLeadData);
 
-      // Update formData with proper type conversion
-      setFormData((prev: LeadFormData) => ({
-        ...prev,
-        ...updatedLead,
-        custom_jobtype: convertedJobTypes, // Ensure this is string[]
-        custom_preferred_inspection_date:
-          updatedLead.custom_preferred_inspection_date
-            ? new Date(updatedLead.custom_preferred_inspection_date)
-            : prev.custom_preferred_inspection_date,
-      }));
+//     if (!updatedLead) {
+//       throw new Error("Failed to update lead");
+//     }
 
-      // Update date if it exists
-      if (updatedLead.custom_preferred_inspection_date) {
-        setDate(new Date(updatedLead.custom_preferred_inspection_date));
-      }
+//     // Convert API response format back to form format (string[])
+//     const convertedJobTypes = Array.isArray(updatedLead.custom_jobtype)
+//       ? updatedLead.custom_jobtype.map((item: any) =>
+//           typeof item === "string" ? item : item.job_type
+//         )
+//       : customerForm.jobType;
 
-      // Update reference input visibility
-      setShowReferenceInput(
-        updatedLead.source === "Reference" ||
-          updatedLead.source === "Supplier Reference"
-      );
+//     // Update formData with proper type conversion
+//     setFormData((prev: LeadFormData) => ({
+//       ...prev,
+//       ...updatedLead,
+//       custom_jobtype: convertedJobTypes, // Ensure this is string[]
+//       custom_preferred_inspection_date:
+//         updatedLead.custom_preferred_inspection_date
+//           ? new Date(updatedLead.custom_preferred_inspection_date)
+//           : prev.custom_preferred_inspection_date,
+//     }));
 
-      // Update the selected customer with new data
-      const updatedCustomer = {
-        customer_name: updatedLead.lead_name || customerForm.name,
-        mobile_no: updatedLead.mobile_no || customerForm.phone,
-        email_id: updatedLead.email_id || customerForm.email,
-        name: updatedLead.name,
-        lead_name: updatedLead.name,
-      };
+//     // Update date if it exists
+//     if (updatedLead.custom_preferred_inspection_date) {
+//       setDate(new Date(updatedLead.custom_preferred_inspection_date));
+//     }
 
-      setSelectedCustomer(updatedCustomer);
-      setSearchQuery(updatedCustomer.customer_name);
+//     // Update reference input visibility
+//     setShowReferenceInput(
+//       updatedLead.source === "Reference" ||
+//         updatedLead.source === "Supplier Reference"
+//     );
 
-      setShowCustomerModal(false);
-      setCustomerForm({
-        name: "",
-        email: "",
-        phone: "+971 ",
-        jobType: [],
-      });
+//     // Update the selected customer with new data
+//     const updatedCustomer = {
+//       customer_name: updatedLead.lead_name || customerForm.name,
+//       mobile_no: updatedLead.mobile_no || customerForm.phone,
+//       email_id: updatedLead.email_id || customerForm.email,
+//       name: updatedLead.name,
+//       lead_name: updatedLead.name,
+//     };
 
-      toast.success(
-        `Customer "${updatedCustomer.customer_name}" updated successfully!`
-      );
-    } catch (error) {
-      console.error("Error saving lead:", error);
+//     setSelectedCustomer(updatedCustomer);
+//     setSearchQuery(updatedCustomer.customer_name);
 
-      toast.error("Failed to save customer");
-    } finally {
-      setIsCreatingCustomer(false);
-    }
-  };
+//     setShowCustomerModal(false);
+//     setCustomerForm({
+//       name: "",
+//       email: "",
+//       phone: "+971 ",
+//       jobType: [],
+//     });
+
+//     showToast.success(`Lead "${updatedCustomer.customer_name}" updated successfully!`);
+    
+//   } catch (error) {
+//     console.error("Error saving lead:", error);
+//     showToast.error("Failed to save customer");
+//   } finally {
+//     setIsCreatingCustomer(false);
+//   }
+// };
   const validateRequestedTime = () => {
     if (!requestedTime || !selectedSlot) return false;
 
@@ -1196,7 +1288,7 @@ const InquiryForm: React.FC<InquiryFormProps> = ({
         });
         setRequestedTime(firstSlot.start);
       } else {
-        toast.success(`Selected ${inspector.user_name}`);
+        showToast.success(`Selected ${inspector.user_name}`);
       }
     }
     setShowAvailabilityModal(false);
@@ -1209,7 +1301,7 @@ const InquiryForm: React.FC<InquiryFormProps> = ({
       ...prev,
       custom_preferred_inspection_time: slot.start,
     }));
-    toast.success(`Selected time slot: ${slot.start} - ${slot.end}`);
+    showToast.success(`Selected time slot: ${slot.start} - ${slot.end}`);
   };
 
   const handleDateSelect = (selectedDate: Date | undefined) => {
@@ -1541,7 +1633,7 @@ const InquiryForm: React.FC<InquiryFormProps> = ({
                               createPortal(<DropdownContent />, document.body)}
                           </div>
 
-                          <div className="col-span-1 md:col-span-2">
+                          {/* <div className="col-span-1 md:col-span-2">
                             <Label
                               htmlFor="source"
                               className="text-md font-medium text-gray-700 mb-1"
@@ -1591,7 +1683,7 @@ const InquiryForm: React.FC<InquiryFormProps> = ({
                                 />
                               </div>
                             )}
-                          </div>
+                          </div> */}
                         </div>
                       )}
 
@@ -1667,6 +1759,58 @@ const InquiryForm: React.FC<InquiryFormProps> = ({
                                 ))}
                               </SelectContent>
                             </Select>
+                          </div>
+
+                          <div className="col-span-1 md:col-span-2">
+                            <Label
+                              htmlFor="source"
+                              className="text-md font-medium text-gray-700 mb-1"
+                            >
+                              Source Of Inquiry{" "}
+                            </Label>
+                            <Select
+                              value={formData.source || ""}
+                              onValueChange={(value) => {
+                                handleSelectChange("source", value);
+                              }}
+                            >
+                              <SelectTrigger className="w-full text-md">
+                                <SelectValue placeholder="Select source" />
+                              </SelectTrigger>
+                              <SelectContent className="bg-white">
+                                {[...utmSource]
+                                  .sort((a, b) => a.name.localeCompare(b.name))
+                                  .map((utms) => (
+                                    <SelectItem
+                                      key={utms.name}
+                                      value={utms.name}
+                                    >
+                                      {utms.name}
+                                    </SelectItem>
+                                  ))}
+                              </SelectContent>
+                            </Select>
+
+                            {showReferenceInput && (
+                              <div className="mt-4">
+                                <Label
+                                  htmlFor="custom_reference_name"
+                                  className="text-md font-medium text-gray-700"
+                                >
+                                  Reference Name{" "}
+                                  <span className="text-red-500">*</span>
+                                </Label>
+                                <Input
+                                  type="text"
+                                  id="custom_reference_name"
+                                  name="custom_reference_name"
+                                  value={formData.custom_reference_name || ""}
+                                  onChange={handleInputChange}
+                                  required
+                                  placeholder="Enter reference name"
+                                />
+                              </div>
+                            )}
                           </div>
                         </div>
                       )}
@@ -1808,7 +1952,7 @@ const InquiryForm: React.FC<InquiryFormProps> = ({
                                   />
                                 </div>
 
-                                <div className="space-y-1 w-full">
+                                {/* <div className="space-y-1 w-full">
                                   <Label className="text-xs text-gray-600">
                                     Duration *
                                   </Label>
@@ -1849,6 +1993,61 @@ const InquiryForm: React.FC<InquiryFormProps> = ({
                                       Hrs
                                     </span>
                                   </div>
+                                </div> */}
+
+
+
+                                <div className="space-y-1 w-full">
+                                   <Label className="text-xs text-gray-600">
+                                    Duration *
+                                  </Label>
+                                  <div className="flex w-full ">
+                                  <Input
+                                    type="number"
+                                    step="0.5"
+                                    min="0.5"
+                                    max={(() => {
+                                      if (!selectedSlot || !requestedTime)
+                                        return 8;
+                                      const requestedMinutes =
+                                        timeToMinutes(requestedTime);
+                                      const slotEndMinutes = timeToMinutes(
+                                        selectedSlot.end
+                                      );
+                                      const remainingMinutes =
+                                        slotEndMinutes - requestedMinutes;
+                                      const maxHours = remainingMinutes / 60;
+                                      return Math.max(
+                                        0.5,
+                                        Math.floor(maxHours * 2) / 2
+                                      );
+                                    })()}
+                                    value={duration}
+                                    onChange={(e) => {
+                                      const newDuration = e.target.value;
+                                      setDuration(newDuration);
+                                      setFormData((prev) => ({
+                                        ...prev,
+                                        custom_duration: newDuration,
+                                      }));
+                                    }}
+                                    placeholder="1.5"
+                                    className={`text-sm h-8 rounded-r-none ${
+                                      durationError
+                                        ? "border-red-500 focus:border-red-500 focus:ring-red-500"
+                                        : ""
+                                    }`}
+                                  />
+                                  <span className="flex items-center justify-center px-3 text-xs text-gray-700 border border-l-0 rounded-r-md bg-gray-50">
+                                    Hrs
+                                  </span>
+                                </div>
+                                
+                                {durationError && (
+                                  <p className="text-xs text-red-500 mt-1">
+                                    Duration exceeds available time slot
+                                  </p>
+                                )}
                                 </div>
 
                                 <div className="space-y-1">
@@ -1963,6 +2162,7 @@ const InquiryForm: React.FC<InquiryFormProps> = ({
                   type="submit"
                   disabled={loading}
                   className="px-6 bg-emerald-600 hover:bg-emerald-700"
+
                 >
                   {loading ? (
                     <div className="flex items-center gap-2">
@@ -2071,7 +2271,7 @@ const InquiryForm: React.FC<InquiryFormProps> = ({
             )}
           </div>
 
-          <div className="space-y-2">
+          {/* <div className="space-y-2">
             <Label className="block text-sm font-medium text-gray-700 mb-1">
               Job Types <span className="text-red-500">*</span>
             </Label>
@@ -2086,7 +2286,7 @@ const InquiryForm: React.FC<InquiryFormProps> = ({
               }}
               placeholder="Select job types"
             />
-          </div>
+          </div> */}
         </div>
 
         <DialogFooter className="mt-6 flex flex-col sm:flex-row gap-2">
@@ -2109,9 +2309,9 @@ const InquiryForm: React.FC<InquiryFormProps> = ({
                 {modalMode === "create" ? "Creating..." : "Updating..."}
               </>
             ) : modalMode === "create" ? (
-              "Save Lead"
+              "Save"
             ) : (
-              "Update Lead"
+              "Update"
             )}
           </Button>
         </DialogFooter>

@@ -6,10 +6,12 @@ import {
   X,
 } from "lucide-react";
 import React, { useEffect, useRef, useState } from "react";
-import { toast } from "react-hot-toast";
+// import { showToast } from "react-hot-showToast";
 import { Button } from "../../../ui/button";
 import { Progress } from "../../../ui/progress";
 import { getMediaType, uploadFile, type MediaItem } from "../utils/fileUpload";
+import { showToast } from "../../../../helpers/comman";
+
 
 interface MediaUploadProps {
   label: string;
@@ -194,7 +196,7 @@ const AudioRecordingDialog: React.FC<{
 
       recorder.onstop = () => {
         if (chunks.length === 0) {
-          toast.error("No audio data recorded");
+          showToast.error("No audio data recorded");
           return;
         }
 
@@ -214,7 +216,7 @@ const AudioRecordingDialog: React.FC<{
         if (audioFile.size > 0) {
           onComplete(audioFile);
         } else {
-          toast.error("Recording failed - no audio data captured");
+          showToast.error("Recording failed - no audio data captured");
         }
 
         stream.getTracks().forEach((track) => track.stop());
@@ -230,7 +232,7 @@ const AudioRecordingDialog: React.FC<{
       }, 1000);
     } catch (error) {
       console.error("Error accessing microphone:", error);
-      toast.error("Could not access microphone. Please check permissions.");
+      showToast.error("Could not access microphone. Please check permissions.");
       onClose();
     }
   };
@@ -420,7 +422,7 @@ const VideoRecordingDialog: React.FC<{
 
       mediaRecorder.onstop = () => {
         if (videoChunksRef.current.length === 0) {
-          toast.error("No video data recorded");
+          showToast.error("No video data recorded");
           return;
         }
 
@@ -444,7 +446,7 @@ const VideoRecordingDialog: React.FC<{
 
     } catch (error) {
       console.error("Video recording error:", error);
-      toast.error("Could not start video recording");
+      showToast.error("Could not start video recording");
       onClose();
     }
   };
@@ -717,7 +719,7 @@ const MediaUpload: React.FC<MediaUploadProps> = ({
       }
     } catch (error) {
       console.error("Camera error:", error);
-      toast.error("Could not access camera. Please check permissions.");
+      showToast.error("Could not access camera. Please check permissions.");
       setShowCameraPreview(false);
     }
   };
@@ -779,10 +781,10 @@ const MediaUpload: React.FC<MediaUploadProps> = ({
         onChange(mediaItem);
       }
 
-      toast.success("Image uploaded successfully!");
+      showToast.success("Image uploaded successfully!");
     } catch (error) {
       console.error("Upload error:", error);
-      toast.error("Failed to upload captured image");
+      showToast.error("Failed to upload captured image");
     } finally {
       setIsUploading(false);
       setUploadProgress(0);
@@ -809,7 +811,7 @@ const MediaUpload: React.FC<MediaUploadProps> = ({
     const filesToUpload = Array.from(files);
 
     if (!multiple && filesToUpload.length > 1) {
-      toast.error(`Only one ${label.toLowerCase()} file is allowed.`);
+      showToast.error(`Only one ${label.toLowerCase()} file is allowed.`);
       return;
     }
 
@@ -818,7 +820,7 @@ const MediaUpload: React.FC<MediaUploadProps> = ({
       maxFiles &&
       currentMediaItems.length + filesToUpload.length > maxFiles
     ) {
-      toast.error(`You can only upload a maximum of ${maxFiles} files.`);
+      showToast.error(`You can only upload a maximum of ${maxFiles} files.`);
       return;
     }
 
@@ -826,7 +828,7 @@ const MediaUpload: React.FC<MediaUploadProps> = ({
     for (const file of filesToUpload) {
       const type = getMediaType(file);
       if (type === "unknown" || !allowedTypes.includes(type)) {
-        toast.error(
+        showToast.error(
           `File "${
             file.name
           }" has an unsupported format. Allowed: ${allowedTypes.join(", ")}`
@@ -835,7 +837,7 @@ const MediaUpload: React.FC<MediaUploadProps> = ({
       }
 
       if (file.size > maxSizeMB * 1024 * 1024) {
-        toast.error(`File "${file.name}" exceeds ${maxSizeMB}MB limit.`);
+        showToast.error(`File "${file.name}" exceeds ${maxSizeMB}MB limit.`);
         continue;
       }
       validFiles.push(file);
@@ -869,7 +871,7 @@ const MediaUpload: React.FC<MediaUploadProps> = ({
           console.error(`Error uploading ${file.name}:`, error);
           // const errorMsg =
           //   error instanceof Error ? error.message : "Upload failed";
-          toast.error(`Failed to upload ${file.name}`);
+          showToast.error(`Failed to upload ${file.name}`);
         }
       }
 
@@ -883,11 +885,11 @@ const MediaUpload: React.FC<MediaUploadProps> = ({
           onChange(updatedItems[0]);
         }
 
-        toast.success(`${uploadedItems.length} files uploaded successfully!`);
+        showToast.success(`${uploadedItems.length} files uploaded successfully!`);
       }
     } catch (error) {
       console.error("Batch upload error:", error);
-      toast.error("An error occurred during upload.");
+      showToast.error("An error occurred during upload.");
     } finally {
       setIsUploading(false);
       setUploadProgress(0);
@@ -926,11 +928,11 @@ const MediaUpload: React.FC<MediaUploadProps> = ({
         onChange(mediaItem);
       }
 
-      toast.success("Audio recording uploaded successfully!");
+      showToast.success("Audio recording uploaded successfully!");
     } catch (error) {
       console.error("Audio upload error:", error);
       // const errorMsg = error instanceof Error ? error.message : String(error);
-      toast.error(`Failed to upload audio recording`);
+      showToast.error(`Failed to upload audio recording`);
     } finally {
       setIsUploading(false);
       setUploadProgress(0);
@@ -966,10 +968,10 @@ const MediaUpload: React.FC<MediaUploadProps> = ({
         onChange(mediaItem);
       }
 
-      toast.success("Video recording uploaded successfully!");
+      showToast.success("Video recording uploaded successfully!");
     } catch (error) {
       console.error("Video upload error:", error);
-      toast.error(`Failed to upload video recording`);
+      showToast.error(`Failed to upload video recording`);
     } finally {
       setIsUploading(false);
       setUploadProgress(0);
@@ -978,12 +980,12 @@ const MediaUpload: React.FC<MediaUploadProps> = ({
 
   const handleClearAll = () => {
     if (inspectionStatus === "Completed") {
-      toast.error("Cannot clear media for a completed inspection.");
+      showToast.error("Cannot clear media for a completed inspection.");
       return;
     }
 
     if (currentMediaItems.length === 0) {
-      toast.error("No media files to clear.");
+      showToast.error("No media files to clear.");
       return;
     }
 
@@ -998,7 +1000,7 @@ const MediaUpload: React.FC<MediaUploadProps> = ({
     setCurrentMediaItems([]);
     if (multiple) {
       onChange([]);
-      toast.success("All media files cleared.");
+      showToast.success("All media files cleared.");
     }
   };
 
