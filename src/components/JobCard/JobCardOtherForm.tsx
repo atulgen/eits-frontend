@@ -1,3 +1,4 @@
+
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
@@ -10,6 +11,7 @@ import {
   Phone,
   Plus,
   Save,
+  Search,
   Trash2,
   User,
   Wrench,
@@ -26,7 +28,7 @@ import {
 } from "../../context/JobCardOtherContext";
 
 import { handleKeyDown } from "../../helpers/helper";
-import PropertyAddressSection from "../Inquiry/PropertyAddress";
+import PropertyAddressSection from "../common/PropertyAddress";
 import { Button } from "../ui/button";
 import {
   Dialog,
@@ -171,6 +173,10 @@ const JobCardOtherForm: React.FC<JobCardOtherFormProps> = ({
 
     return checkDate >= jobStart && checkDate <= jobFinish;
   };
+
+    console.log(fetchingCustomerDetails)
+
+  console.log(fetchingLeadDetails)
 
   // Fetch employees when component mounts
   useEffect(() => {
@@ -422,10 +428,8 @@ const JobCardOtherForm: React.FC<JobCardOtherFormProps> = ({
         }));
         setSearchQuery(customer.customer_name);
       } else {
-
-
         // const customerName = extractCustomerNameFromSite(customer.site_name);
-      const address = extractAddressFromSite(customer.site_name);
+        const address = extractAddressFromSite(customer.site_name);
         // Handle existing customer/lead
         const customerData = {
           party_name:
@@ -722,66 +726,66 @@ const JobCardOtherForm: React.FC<JobCardOtherFormProps> = ({
       return newData;
     });
   }, []);
- const extractCustomerNameFromSite = (siteName: string) => {
-  if (!siteName) return "Unknown";
-  
-  // Handle format 1: "You:H135,Streeet 123568,Al Fahidi (Al Bastakiya),Bur Dubai (South of Dubai Creek),Dubai-608"
-  if (siteName.includes(":")) {
-    const parts = siteName.split(":");
-    if (parts.length >= 2) {
-      // Check if the part after colon starts with a number (address part)
-      const afterColon = parts[1];
-      if (/^\d/.test(afterColon)) {
-        return parts[0].trim(); // Return "You"
-      }
-    }
-  }
-  
-  // Handle format 2: "Utkarsh-36546,Backstreet,Al Bithnah,Central Abu Dhabi,Abu Dhabi"
-  if (siteName.includes("-")) {
-    const parts = siteName.split("-");
-    if (parts.length >= 2) {
-      // Check if the part after dash starts with a number (address part)
-      const afterDash = parts[1];
-      if (/^\d/.test(afterDash)) {
-        return parts[0].trim(); // Return "Utkarsh"
-      }
-    }
-  }
-  
-  // Fallback: take first part before comma
-  return siteName.split(",")[0].trim();
-};
+  const extractCustomerNameFromSite = (siteName: string) => {
+    if (!siteName) return "Unknown";
 
-// Helper function to extract address from site_name (remove customer name part)
-const extractAddressFromSite = (siteName: string) => {
-  if (!siteName) return "";
-  
-  // Handle format 1: "You:H135,Streeet 123568,..." - extract everything after colon
-  if (siteName.includes(":")) {
-    const colonIndex = siteName.indexOf(":");
-    if (colonIndex !== -1) {
-      const afterColon = siteName.substring(colonIndex + 1);
-      // Remove the trailing "-608" part
-      const dashIndex = afterColon.lastIndexOf("-");
-      if (dashIndex !== -1) {
-        return afterColon.substring(0, dashIndex).trim();
+    // Handle format 1: "You:H135,Streeet 123568,Al Fahidi (Al Bastakiya),Bur Dubai (South of Dubai Creek),Dubai-608"
+    if (siteName.includes(":")) {
+      const parts = siteName.split(":");
+      if (parts.length >= 2) {
+        // Check if the part after colon starts with a number (address part)
+        const afterColon = parts[1];
+        if (/^\d/.test(afterColon)) {
+          return parts[0].trim(); // Return "You"
+        }
       }
-      return afterColon.trim();
     }
-  }
-  
-  // Handle format 2: "Utkarsh-36546,Backstreet,..." - extract everything after dash
-  if (siteName.includes("-")) {
-    const dashIndex = siteName.indexOf("-");
-    if (dashIndex !== -1) {
-      return siteName.substring(dashIndex + 1).trim();
+
+    // Handle format 2: "Utkarsh-36546,Backstreet,Al Bithnah,Central Abu Dhabi,Abu Dhabi"
+    if (siteName.includes("-")) {
+      const parts = siteName.split("-");
+      if (parts.length >= 2) {
+        // Check if the part after dash starts with a number (address part)
+        const afterDash = parts[1];
+        if (/^\d/.test(afterDash)) {
+          return parts[0].trim(); // Return "Utkarsh"
+        }
+      }
     }
-  }
-  
-  // Fallback: return original if pattern doesn't match
-  return siteName;
-};
+
+    // Fallback: take first part before comma
+    return siteName.split(",")[0].trim();
+  };
+
+  // Helper function to extract address from site_name (remove customer name part)
+  const extractAddressFromSite = (siteName: string) => {
+    if (!siteName) return "";
+
+    // Handle format 1: "You:H135,Streeet 123568,..." - extract everything after colon
+    if (siteName.includes(":")) {
+      const colonIndex = siteName.indexOf(":");
+      if (colonIndex !== -1) {
+        const afterColon = siteName.substring(colonIndex + 1);
+        // Remove the trailing "-608" part
+        const dashIndex = afterColon.lastIndexOf("-");
+        if (dashIndex !== -1) {
+          return afterColon.substring(0, dashIndex).trim();
+        }
+        return afterColon.trim();
+      }
+    }
+
+    // Handle format 2: "Utkarsh-36546,Backstreet,..." - extract everything after dash
+    if (siteName.includes("-")) {
+      const dashIndex = siteName.indexOf("-");
+      if (dashIndex !== -1) {
+        return siteName.substring(dashIndex + 1).trim();
+      }
+    }
+
+    // Fallback: return original if pattern doesn't match
+    return siteName;
+  };
   if (!isOpen) return null;
 
   return (
@@ -876,7 +880,7 @@ const extractAddressFromSite = (siteName: string) => {
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     {/* Customer Search - Full width on mobile, spans 2 cols on md, 1 col on lg */}
                     <div className="relative col-span-1 md:col-span-2 lg:col-span-1">
-                      <label className="flex items-center space-x-2 text-sm md:text-base font-medium text-black mb-2">
+                      {/* <label className="flex items-center space-x-2 text-sm md:text-base font-medium text-black mb-2">
                         <User className="h-4 w-4 text-black" />
                         <span>
                           Customer{" "}
@@ -888,16 +892,17 @@ const extractAddressFromSite = (siteName: string) => {
                         {(fetchingCustomerDetails || fetchingLeadDetails) && (
                           <Loader2 className="h-4 w-4 animate-spin text-gray-500" />
                         )}
-                      </label>
-                      <div className="relative">
+                      </label> */}
+                     <div className="relative ">
+                        <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400  " />
                         <Input
                           id="party_name"
                           name="party_name"
                           value={searchQuery}
                           onChange={handleSearchChange}
-                          placeholder="Search by name, phone, or email"
+                          placeholder="Search by Customer Name, phone, or email"
                           required
-                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none pr-10 capitalize"
+                          className="w-full pl-9 pr-10 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none  capitalize"
                         />
                         {isSearching && (
                           <Loader2 className="absolute right-3 top-3 h-4 w-4 animate-spin text-gray-500" />
@@ -1074,7 +1079,9 @@ const extractAddressFromSite = (siteName: string) => {
                                 new Date(selectedDate) <
                                 new Date(new Date().toISOString().split("T")[0])
                               ) {
-                                showToast.error("Start date cannot be in the past");
+                                showToast.error(
+                                  "Start date cannot be in the past"
+                                );
                                 return;
                               }
                               setFormData((prev) => ({
@@ -1153,9 +1160,9 @@ const extractAddressFromSite = (siteName: string) => {
                         <div className="grid grid-cols-1 gap-4">
                           {/* Work Type - Full width */}
                           <div className="space-y-1">
-                            <Label className="text-xs font-medium text-gray-600">
+                            {/* <Label className="text-xs font-medium text-gray-600">
                               Work Type
-                            </Label>
+                            </Label> */}
                             {loadingJobTypes ? (
                               <div className="flex items-center gap-2">
                                 <Loader2 className="animate-spin h-4 w-4" />
@@ -1304,10 +1311,10 @@ const extractAddressFromSite = (siteName: string) => {
                           </div> */}
 
                           {/* Work Description - Full width */}
-                          <div className="space-y-1">
-                            <Label className="text-sm font-medium text-gray-600">
+                          <div className="space-y-2">
+                            {/* <Label className="text-sm font-medium text-gray-600">
                               Work Description
-                            </Label>
+                            </Label> */}
                             <Textarea
                               placeholder="Enter detailed work description"
                               value={service.work_description}
@@ -1518,7 +1525,11 @@ const extractAddressFromSite = (siteName: string) => {
             <Button variant="outline" onClick={handleCloseCustomerDialog}>
               Cancel
             </Button>
-            <Button onClick={handleCreateCustomer} disabled={creatingCustomer} className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50">
+            <Button
+              onClick={handleCreateCustomer}
+              disabled={creatingCustomer}
+              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+            >
               {creatingCustomer ? (
                 <Loader2 className="h-4 w-4 animate-spin mr-2" />
               ) : null}
